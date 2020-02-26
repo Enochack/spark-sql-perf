@@ -297,11 +297,13 @@ abstract class Tables(sqlContext: SQLContext, scaleFactor: String,
       tables.map(_.nonPartitioned)
     }
 
-    if (!tableFilter.isEmpty) {
-      tablesToBeGenerated = tablesToBeGenerated.filter(_.name == tableFilter)
+    if (tableFilter.nonEmpty) {
+      val tableSet = tableFilter.split(',').toSet
+      tablesToBeGenerated = tablesToBeGenerated.filter(t => tableSet.contains(t.name))
       if (tablesToBeGenerated.isEmpty) {
         throw new RuntimeException("Bad table name filter: " + tableFilter)
       }
+      log.info(s"Tables to be generated: [$tableFilter]")
     }
 
     tablesToBeGenerated.foreach { table =>
