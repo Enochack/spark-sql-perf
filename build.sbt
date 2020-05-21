@@ -80,6 +80,16 @@ runMLBenchmark := {
     streams.value.log)
 }
 
+val genData = inputKey[Unit]("generates a TPCDS dataset")
+
+genData := {
+  import complete.DefaultParsers._
+  val args = spaceDelimited("[args]").parsed
+  val scalaRun = (runner in run).value
+  val classpath = (fullClasspath in Compile).value
+  scalaRun.run("com.databricks.spark.sql.perf.GenData", classpath.map(_.data), args,
+    streams.value.log)
+}
 
 import ReleaseTransformations._
 
