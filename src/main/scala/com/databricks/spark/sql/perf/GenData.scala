@@ -1,9 +1,14 @@
 package com.databricks.spark.sql.perf
 
 import com.databricks.spark.sql.perf.tpcds.TPCDSTables
+import com.databricks.spark.sql.perf.tpch.TPCHTables
 import org.apache.spark.sql.SparkSession
 
-case class GenTPCDSDataConfig(
+case class GenDataConfig(
+  // Spark master url
+  master: String = "local[*]",
+  // TPCDS or TPCH tables
+  tables: String = "tpcds",
   // root directory of location to create data in.
   location: String = "/user/spark/warehouse",
   // name of database to create.
@@ -17,7 +22,7 @@ case class GenTPCDSDataConfig(
   // valid spark format like parquet "parquet".
   format: String = "parquet",
   // location of dsdgen
-  dsdgenDir: String = "/tmp/tpcds-kit/tools",
+  genDir: String = "/tmp/tpcds-kit/tools",
   // overwrite the data that is already there
   overwrite: Boolean = true,
   // create the partitioned fact tables
@@ -32,20 +37,19 @@ case class GenTPCDSDataConfig(
   numPartitions: Int = 2)
 
 /**
-  * Generate a new TPCDS dataset.
-  */
-object GenTPCDSData {
-
-  private val spark = SparkSession.builder()
-    .appName(this.getClass.getSimpleName)
-    .enableHiveSupport()
-    .getOrCreate()
-
-  private val sql = spark.sql _
+ * Generate a new TPCDS dataset.
+ */
+object GenData {
 
   def main(args: Array[String]): Unit = {
-    val parser = new scopt.OptionParser[GenTPCDSDataConfig]("spark-sql-perf") {
+    val parser = new scopt.OptionParser[GenDataConfig]("spark-sql-perf") {
       head("spark-sql-perf", "0.5.1-SNAPSHOT")
+      opt[String]("master")
+        .action { (x, c) => c.copy(master = x) }
+        .text("the Spark master to use, default to local[*]")
+      opt[String]("tables")
+        .action { (x, c) => c.copy(master = x) }
+        .text("tpcds or tpch tables to create, default to tpcds")
       opt[String]("location")
         .action { (x, c) => c.copy(location = x) }
         .text("root directory of location to create data in")
@@ -67,19 +71,19 @@ object GenTPCDSData {
       opt[String]("format")
         .action((x, c) => c.copy(format = x))
         .text("valid spark format like parquet")
-      opt[String]("dsdgen-dir")
-        .action((x, c) => c.copy(dsdgenDir = x))
-        .text("location of dsdgen")
+      opt[String]("gen-dir")
+        .action((x, c) => c.copy(genDir = x))
+        .text("location of dsdgen / dbgen")
         .required()
       opt[Boolean]("overwrite")
         .action((x, c) => c.copy(overwrite = x))
         .text("overwrite the data that is already there")
       opt[Boolean]("partition-tables")
         .action((x, c) => c.copy(partitionTables = x))
-        .text("create the partitioned fact tables")
+        .text("true to create the partitioned fact tables")
       opt[Boolean]("cluster-by-partiton-columns")
         .action((x, c) => c.copy(clusterByPartitionColumns = x))
-        .text("shuffle to get partitions coalesced into single files")
+        .text("true to shuffle to get partitions coalesced into single files")
       opt[Boolean]("filter-out-null-partition-values")
         .action((x, c) => c.copy(filterOutNullPartitionValues = x))
         .text("true to filter out the partition with NULL key value")
@@ -94,18 +98,39 @@ object GenTPCDSData {
         .text("prints this usage text")
     }
 
-    parser.parse(args, GenTPCDSDataConfig()) match {
+    parser.parse(args, GenDataConfig()) match {
       case Some(conf) => run(conf)
       case None => sys.exit(1)
     }
   }
 
-  private def run(conf: GenTPCDSDataConfig): Unit = {
-    val tables = new TPCDSTables(spark.sqlContext,
-      dsdgenDir = conf.dsdgenDir,
-      scaleFactor = conf.scaleFactor,
-      useDoubleForDecimal = conf.useDoubleForDecimal,
-      useStringForDate = conf.useStringForDate)
+  private def run(conf: GenDataConfig): Unit = {
+    lazy val spark = SparkSession.builder()
+      .appName(this.getClass.getSimpleName)
+      .master(conf.master)
+      .enableHiveSupport()
+      .getOrCreate()
+
+    lazy val sql = spark.sql _
+
+    val tables = conf.tables match {
+      case "tpcds" =>
+        new TPCDSTables(spark.sqlContext,
+          dsdgenDir = conf.genDir,
+          scaleFactor = conf.scaleFactor,
+          useDoubleForDecimal = conf.useDoubleForDecimal,
+          useStringForDate = conf.useStringForDate)
+      case "tpch" =>
+        new TPCHTables(spark.sqlContext,
+          dbgenDir = conf.genDir,
+          scaleFactor = conf.scaleFactor,
+          useDoubleForDecimal = conf.useDoubleForDecimal,
+          useStringForDate = conf.useStringForDate)
+      case invalid =>
+        throw new IllegalArgumentException(s"Unsupported type of tables: $invalid, supported" +
+          s"types: [tpcds, tpch]")
+    }
+
 
     tables.genData(
       location = conf.location,
