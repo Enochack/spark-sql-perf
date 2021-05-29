@@ -48,7 +48,7 @@ object GenData {
         .action { (x, c) => c.copy(master = x) }
         .text("the Spark master to use, default to local[*]")
       opt[String]("tables")
-        .action { (x, c) => c.copy(master = x) }
+        .action { (x, c) => c.copy(tables = x) }
         .text("tpcds or tpch tables to create, default to tpcds")
       opt[String]("location")
         .action { (x, c) => c.copy(location = x) }
