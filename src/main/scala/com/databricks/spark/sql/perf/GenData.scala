@@ -81,7 +81,7 @@ object GenData {
       opt[Boolean]("partition-tables")
         .action((x, c) => c.copy(partitionTables = x))
         .text("true to create the partitioned fact tables")
-      opt[Boolean]("cluster-by-partiton-columns")
+      opt[Boolean]("cluster-by-partition-columns")
         .action((x, c) => c.copy(clusterByPartitionColumns = x))
         .text("true to shuffle to get partitions coalesced into single files")
       opt[Boolean]("filter-out-null-partition-values")
