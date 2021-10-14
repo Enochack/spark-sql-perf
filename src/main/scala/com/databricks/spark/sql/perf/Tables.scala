@@ -303,8 +303,8 @@ abstract class Tables(sqlContext: SQLContext, scaleFactor: String,
       if (tablesToBeGenerated.isEmpty) {
         throw new RuntimeException("Bad table name filter: " + tableFilter)
       }
-      log.info(s"Tables to be generated: [$tableFilter]")
     }
+    log.info(s"Tables to be generated: [${tablesToBeGenerated.mkString(",")}]")
 
     tablesToBeGenerated.foreach { table =>
       val tableLocation = s"$location/${table.name}"
